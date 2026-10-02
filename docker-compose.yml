@@ -1,0 +1,54 @@
+# The switch, its database and three bank simulators.
+#   docker compose up --build
+#   dashboard: http://localhost:8080   banks: 9001 (Alfa), 9002 (Bravo), 9003 (Charlie)
+name: instant-transfer-switch
+
+x-bank: &bank
+  build: ./bank
+  restart: unless-stopped
+  environment: &bank-env
+    SWITCH_URL: http://switch:8080
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: switch
+      POSTGRES_USER: switch
+      POSTGRES_PASSWORD: switch
+    ports: ["5432:5432"]
+    volumes: [db:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U switch -d switch"]
+      interval: 3s
+      retries: 20
+
+  switch:
+    build: ./switch
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: jdbc:postgresql://db:5432/switch
+      ITS_ADMIN_KEY: ${ITS_ADMIN_KEY:-local-admin-key}
+      ALFA_URL: http://alfa:9000
+      BRAVO_URL: http://bravo:9000
+      CHARLIE_URL: http://charlie:9000
+    ports: ["8080:8080"]
+
+  alfa:
+    <<: *bank
+    environment: { <<: *bank-env, BANK_BIC: ALFAMYKL, BANK_NAME: Alfa Bank, SWITCH_API_KEY: alfa-dev-key }
+    ports: ["9001:9000"]
+
+  bravo:
+    <<: *bank
+    environment: { <<: *bank-env, BANK_BIC: BRVOMYKL, BANK_NAME: Bravo Bank, SWITCH_API_KEY: bravo-dev-key }
+    ports: ["9002:9000"]
+
+  charlie:
+    <<: *bank
+    environment: { <<: *bank-env, BANK_BIC: CHRLMYKL, BANK_NAME: Charlie Bank, SWITCH_API_KEY: charlie-dev-key }
+    ports: ["9003:9000"]
+
+volumes:
+  db:

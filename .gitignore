@@ -1,0 +1,15 @@
+# Java
+switch/target/
+*.class
+# Go
+bank/bank
+bank/*.exe
+# IDEs
+.idea/
+*.iml
+.vscode/
+# OS
+.DS_Store
+Thumbs.db
+# Local secrets
+.env

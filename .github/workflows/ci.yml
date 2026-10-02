@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  switch:
+    name: Switch (Java)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: switch
+          POSTGRES_USER: switch
+          POSTGRES_PASSWORD: switch
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U switch" --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: switch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+      - name: Unit and integration tests
+        run: mvn -B verify
+        env:
+          ITS_TEST_DB_URL: jdbc:postgresql://localhost:5432/switch
+
+  bank:
+    name: Bank simulator (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bank
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: bank/go.mod
+      - run: go vet ./...
+      - run: go test -race ./...
+
+  e2e:
+    name: End-to-end demo
+    needs: [switch, bank]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start the switch, database and three banks
+        run: docker compose up -d --build --wait
+      - name: Run scripts/demo.sh
+        run: bash scripts/demo.sh
+      - name: Logs
+        if: failure()
+        run: docker compose logs --no-color
+      - name: Stop
+        if: always()
+        run: docker compose down -v

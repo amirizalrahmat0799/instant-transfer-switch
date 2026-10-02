@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Document xmlns="urn:iso:std:iso:20022:tech:xsd:camt.029.001.09">
+  <RsltnOfInvstgtn>
+    <Assgnmt>
+      <Id>BRVOMYKL202610027591159D1C8A08B1</Id>
+      <CreDtTm>2026-10-02T22:46:05.447+08:00</CreDtTm>
+    </Assgnmt>
+    <Sts>
+      <Conf>CNCL</Conf>
+    </Sts>
+    <CxlDtls>
+      <TxInfAndSts>
+        <OrgnlEndToEndId>E2E20261002243BA6AA7ECB0F74</OrgnlEndToEndId>
+        <TxCxlSts>CNCL</TxCxlSts>
+        <CxlStsRsnInf>
+          <Rsn></Rsn>
+        </CxlStsRsnInf>
+      </TxInfAndSts>
+    </CxlDtls>
+  </RsltnOfInvstgtn>
+</Document>

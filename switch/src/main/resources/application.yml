@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: transfer-switch
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/switch}
+    username: ${DATABASE_USER:switch}
+    password: ${DATABASE_PASSWORD:switch}
+  mvc:
+    problemdetails:
+      enabled: true
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+
+its:
+  bic: ITSWMYKL
+  admin-key: ${ITS_ADMIN_KEY:local-admin-key}
+  # How long the switch waits for the receiving bank before rejecting with AB05 and reversing
+  creditor-timeout: 5s
+  settlement:
+    # End-of-day cut-over, Malaysia time. Can also be triggered with POST /api/v1/settlement/close.
+    cron: "0 59 23 * * *"
+  participants:
+    - bic: ALFAMYKL
+      name: Alfa Bank
+      base-url: ${ALFA_URL:http://localhost:9001}
+      api-key: ${ALFA_API_KEY:alfa-dev-key}
+      net-debit-cap: 100000000 # sen = RM 1,000,000
+    - bic: BRVOMYKL
+      name: Bravo Bank
+      base-url: ${BRAVO_URL:http://localhost:9002}
+      api-key: ${BRAVO_API_KEY:bravo-dev-key}
+      net-debit-cap: 50000000 # RM 500,000
+    - bic: CHRLMYKL
+      name: Charlie Bank
+      base-url: ${CHARLIE_URL:http://localhost:9003}
+      api-key: ${CHARLIE_API_KEY:charlie-dev-key}
+      net-debit-cap: 20000000 # RM 200,000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

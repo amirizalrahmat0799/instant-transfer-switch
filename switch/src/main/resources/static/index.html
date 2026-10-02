@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Instant Transfer Switch · Operations</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #263040; --text: #e6edf3; --muted: #8b98a8;
+    --ok: #3fb950; --warn: #d29922; --bad: #f85149; --accent: #58a6ff; --dim: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+           padding: 16px 24px; border-bottom: 1px solid var(--line); }
+  h1 { font-size: 18px; margin: 0; }
+  h1 span { color: var(--muted); font-weight: 400; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 12px; }
+  main { padding: 20px 24px 40px; display: grid; gap: 16px; grid-template-columns: repeat(12, 1fr); max-width: 1400px; margin: 0 auto; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; min-width: 0; }
+  .span-12 { grid-column: span 12; } .span-8 { grid-column: span 8; } .span-4 { grid-column: span 4; }
+  @media (max-width: 960px) { .span-8, .span-4 { grid-column: span 12; } main, header { padding-left: 16px; padding-right: 16px; } }
+  .meta { color: var(--muted); font-size: 13px; display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 6px; }
+  .dot.UP { background: var(--ok); box-shadow: 0 0 6px var(--ok); } .dot.DOWN { background: var(--bad); } .dot.UNKNOWN { background: var(--warn); }
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .kpi .v { font-size: 26px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .kpi .l { color: var(--muted); font-size: 12px; }
+  .banks { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
+  .bank { border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+  .bank .top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .bank .name { font-weight: 600; }
+  .bic { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; color: var(--muted); font-size: 12px; }
+  .row { display: flex; justify-content: space-between; font-size: 13px; margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .row span:first-child { color: var(--muted); }
+  .bar { height: 6px; background: var(--dim); border-radius: 3px; margin-top: 8px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+  .bar > i.warn { background: var(--warn); } .bar > i.bad { background: var(--bad); }
+  .pos { color: var(--ok); } .neg { color: var(--bad); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { overflow-x: auto; }
+  .tag { display: inline-block; padding: 1px 8px; border-radius: 10px; font-size: 12px; font-weight: 600; }
+  .tag.COMPLETED { background: rgba(63,185,80,.15); color: var(--ok); }
+  .tag.REJECTED { background: rgba(248,81,73,.15); color: var(--bad); }
+  .tag.TIMED_OUT { background: rgba(210,153,34,.15); color: var(--warn); }
+  .tag.FORWARDED { background: rgba(88,166,255,.15); color: var(--accent); }
+  .empty { color: var(--muted); padding: 12px 0; }
+  .reason { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+  .reason b { font-family: ui-monospace, Consolas, monospace; margin-right: 8px; }
+  .legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); margin-top: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  svg text { fill: var(--muted); font-size: 10px; }
+  #error { display: none; background: rgba(248,81,73,.12); border: 1px solid var(--bad); color: var(--text); padding: 10px 14px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Instant Transfer Switch <span>· operations</span></h1>
+  <div class="meta">
+    <span id="cycle">Cycle –</span>
+    <span id="proxies">– proxies</span>
+    <span><span class="dot" id="live"></span><span id="updated">connecting…</span></span>
+  </div>
+</header>
+
+<main>
+  <div id="error" class="span-12"></div>
+
+  <section class="panel span-12">
+    <h2>Last 15 minutes</h2>
+    <div class="kpis">
+      <div class="kpi"><div class="v" id="k-total">–</div><div class="l">Transfers</div></div>
+      <div class="kpi"><div class="v" id="k-success">–</div><div class="l">Success rate</div></div>
+      <div class="kpi"><div class="v" id="k-rejected">–</div><div class="l">Rejected</div></div>
+      <div class="kpi"><div class="v" id="k-timeout">–</div><div class="l">Timed out (reversed)</div></div>
+      <div class="kpi"><div class="v" id="k-avg">–</div><div class="l">Avg latency</div></div>
+      <div class="kpi"><div class="v" id="k-p95">–</div><div class="l">p95 latency</div></div>
+    </div>
+  </section>
+
+  <section class="panel span-12">
+    <h2>Participants · open cycle positions</h2>
+    <div class="banks" id="banks"></div>
+  </section>
+
+  <section class="panel span-8">
+    <h2>Throughput per minute</h2>
+    <div id="chart"></div>
+    <div class="legend"><span><i style="background:var(--ok)"></i>Completed</span><span><i style="background:var(--bad)"></i>Rejected / timed out</span></div>
+  </section>
+
+  <section class="panel span-4">
+    <h2>Rejection reasons</h2>
+    <div id="reasons"></div>
+  </section>
+
+  <section class="panel span-12">
+    <h2>Recent transfers</h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Time</th><th>End-to-end ID</th><th>From</th><th>To</th><th class="num">Amount</th><th>Status</th><th>Reason</th><th class="num">Latency</th></tr></thead>
+      <tbody id="recent"></tbody>
+    </table></div>
+  </section>
+</main>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const rm = (sen) => 'RM ' + (sen / 100).toLocaleString('en-MY', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const signed = (sen) => (sen > 0 ? '+' : sen < 0 ? '−' : '') + rm(Math.abs(sen));
+  const ms = (v) => (v == null ? '–' : v + ' ms');
+  const time = (iso) => new Date(iso).toLocaleTimeString('en-MY', { hour12: false });
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+
+  function render(d) {
+    $('cycle').textContent = d.cycleId ? `Cycle #${d.cycleId} open` : 'No open cycle';
+    $('proxies').textContent = `${d.registeredProxies} proxies`;
+    $('updated').textContent = 'Updated ' + time(d.now);
+    $('live').className = 'dot UP';
+
+    const w = d.last15m;
+    $('k-total').textContent = w.total;
+    $('k-success').textContent = (w.successRate * 100).toFixed(1) + '%';
+    $('k-rejected').textContent = w.rejected;
+    $('k-timeout').textContent = w.timedOut;
+    $('k-avg').textContent = ms(w.avgLatencyMs);
+    $('k-p95').textContent = ms(w.p95LatencyMs);
+
+    $('banks').innerHTML = d.banks.map((b) => {
+      const pct = Math.round(b.capUsed * 100);
+      const cls = pct >= 90 ? 'bad' : pct >= 70 ? 'warn' : '';
+      return `<div class="bank">
+        <div class="top"><span class="name"><span class="dot ${esc(b.state)}"></span>${esc(b.name)}</span><span class="bic">${esc(b.bic)}</span></div>
+        <div class="row"><span>Status</span><span>${esc(b.state)}${b.pingMs != null ? ' · ' + b.pingMs + ' ms' : ''}</span></div>
+        <div class="row"><span>Sent</span><span>${b.sentCount} · ${rm(b.sentAmount)}</span></div>
+        <div class="row"><span>Received</span><span>${b.receivedCount} · ${rm(b.receivedAmount)}</span></div>
+        <div class="row"><span>Net position</span><span class="${b.net >= 0 ? 'pos' : 'neg'}">${signed(b.net)}</span></div>
+        <div class="row"><span>Debit cap used</span><span>${pct}% of ${rm(b.netDebitCap)}</span></div>
+        <div class="bar"><i class="${cls}" style="width:${pct}%"></i></div>
+      </div>`;
+    }).join('');
+
+    $('reasons').innerHTML = d.reasons.length === 0
+      ? '<div class="empty">No rejections. All good.</div>'
+      : d.reasons.map((r) => `<div class="reason"><span><b>${esc(r.code)}</b>${esc(r.description)}</span><span>${r.count}</span></div>`).join('');
+
+    $('recent').innerHTML = d.recent.length === 0
+      ? '<tr><td colspan="8" class="empty">No transfers yet. Run scripts/demo.sh or send one from a bank.</td></tr>'
+      : d.recent.map((t) => `<tr>
+          <td>${time(t.at)}</td><td class="bic">${esc(t.endToEndId)}</td><td>${esc(t.debtorBic)}</td><td>${esc(t.creditorBic)}</td>
+          <td class="num">${rm(t.amount)}</td><td><span class="tag ${esc(t.status)}">${esc(t.status)}</span></td>
+          <td title="${esc(t.reason)}">${t.reasonCode ? esc(t.reasonCode) + ' · ' + esc(t.reason) : ''}</td><td class="num">${ms(t.latencyMs)}</td></tr>`).join('');
+
+    chart(d.perMinute);
+  }
+
+  function chart(points) {
+    const W = 760, H = 180, pad = 24, n = points.length || 1;
+    const max = Math.max(1, ...points.map((p) => p.completed + p.failed));
+    const bw = (W - pad) / n;
+    const y = (v) => ((H - 20) * v) / max;
+    let bars = '';
+    points.forEach((p, i) => {
+      const x = pad + i * bw + 3, w = bw - 6;
+      const hc = y(p.completed), hf = y(p.failed);
+      bars += `<rect x="${x}" y="${H - 20 - hc}" width="${w}" height="${hc}" fill="var(--ok)" rx="2"><title>${p.completed} completed</title></rect>`;
+      bars += `<rect x="${x}" y="${H - 20 - hc - hf}" width="${w}" height="${hf}" fill="var(--bad)" rx="2"><title>${p.failed} failed</title></rect>`;
+      if (i % 3 === 0 || i === n - 1) bars += `<text x="${x + w / 2}" y="${H - 5}" text-anchor="middle">${time(p.minute).slice(0, 5)}</text>`;
+    });
+    $('chart').innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Transfers per minute">
+      <line x1="${pad}" x2="${W}" y1="${H - 20}" y2="${H - 20}" stroke="var(--line)"/>
+      <text x="0" y="12">${max}</text><text x="0" y="${H - 22}">0</text>${bars}</svg>`;
+  }
+
+  async function poll() {
+    try {
+      const res = await fetch('/api/v1/monitor/summary', { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      render(await res.json());
+      $('error').style.display = 'none';
+    } catch (e) {
+      $('live').className = 'dot DOWN';
+      $('updated').textContent = 'Disconnected';
+      $('error').textContent = 'Cannot reach the switch (' + e.message + '). Retrying…';
+      $('error').style.display = 'block';
+    } finally {
+      setTimeout(poll, 2000);
+    }
+  }
+  poll();
+</script>
+</body>
+</html>
