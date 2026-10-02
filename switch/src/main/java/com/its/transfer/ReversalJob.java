@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import com.its.config.SwitchProperties;
 import com.its.iso.IsoXml;
 import com.its.iso.Reason;
+import com.its.metrics.SwitchMetrics;
 import com.its.participant.ParticipantRegistry;
 
 /**
@@ -24,12 +25,15 @@ public class ReversalJob {
     private final TransferRepository transfers;
     private final ParticipantRegistry registry;
     private final CreditorBankClient banks;
+    private final SwitchMetrics metrics;
     private final String switchBic;
 
-    public ReversalJob(TransferRepository transfers, ParticipantRegistry registry, CreditorBankClient banks, SwitchProperties props) {
+    public ReversalJob(TransferRepository transfers, ParticipantRegistry registry, CreditorBankClient banks, SwitchMetrics metrics,
+            SwitchProperties props) {
         this.transfers = transfers;
         this.registry = registry;
         this.banks = banks;
+        this.metrics = metrics;
         this.switchBic = props.bic();
     }
 
@@ -46,10 +50,13 @@ public class ReversalJob {
                 String result = banks.requestCancellation(bank, camt056);
                 String status = "CNCL".equals(result) ? "CANCELLED" : "NOTHING_TO_CANCEL";
                 transfers.resolveReversal(r.transferId(), status);
+                metrics.reversal(status.toLowerCase());
                 log.info("Cancellation for {} at {}: {}", r.endToEndId(), r.creditorBic(), status);
             } catch (RuntimeException e) {
                 long delay = Math.min(300, 5L << Math.min(r.attempts(), 6));
-                transfers.retryReversal(r.transferId(), e.getMessage(), delay, r.attempts() + 1 >= MAX_ATTEMPTS);
+                boolean giveUp = r.attempts() + 1 >= MAX_ATTEMPTS;
+                transfers.retryReversal(r.transferId(), e.getMessage(), delay, giveUp);
+                metrics.reversal(giveUp ? "failed" : "retry");
             }
         }
     }

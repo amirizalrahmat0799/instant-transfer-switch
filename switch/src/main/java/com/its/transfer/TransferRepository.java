@@ -124,6 +124,11 @@ public class TransferRepository {
             .list();
     }
 
+    /** Cancellations still being retried (for the metrics gauge). */
+    public long countPendingReversals() {
+        return jdbc.sql("SELECT count(*) FROM reversals WHERE status = 'PENDING'").query(Long.class).single();
+    }
+
     public void resolveReversal(UUID transferId, String status) {
         jdbc.sql("UPDATE reversals SET status = :status, resolved_at = now(), attempts = attempts + 1 WHERE transfer_id = :id")
             .param("id", transferId)

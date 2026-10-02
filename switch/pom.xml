@@ -13,7 +13,7 @@
 
     <groupId>com.its</groupId>
     <artifactId>transfer-switch</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
     <name>transfer-switch</name>
     <description>Central switch for real-time interbank transfers (ISO 20022): proxy lookup, net debit caps, timeouts and reversals, settlement</description>
 
@@ -38,6 +38,10 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.micrometer</groupId>
+            <artifactId>micrometer-registry-prometheus</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springdoc</groupId>

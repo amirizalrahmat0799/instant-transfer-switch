@@ -14,7 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import io.micrometer.core.instrument.Timer;
+
 import com.its.config.SwitchProperties;
+import com.its.metrics.SwitchMetrics;
 import com.its.participant.ParticipantRegistry;
 import com.its.settlement.CycleRepository.Cycle;
 import com.its.settlement.Netting.Line;
@@ -44,14 +47,16 @@ public class SettlementService implements ApplicationRunner {
     private final ParticipantRegistry registry;
     private final TransactionTemplate tx;
     private final Duration drainTimeout;
+    private final Timer closeTimer;
 
     public SettlementService(CycleRepository cycles, TransferRepository transfers, ParticipantRegistry registry,
-            PlatformTransactionManager txManager, SwitchProperties props) {
+            PlatformTransactionManager txManager, SwitchMetrics metrics, SwitchProperties props) {
         this.cycles = cycles;
         this.transfers = transfers;
         this.registry = registry;
         this.tx = new TransactionTemplate(txManager);
         this.drainTimeout = props.creditorTimeout().multipliedBy(3);
+        this.closeTimer = metrics.settlementClose();
     }
 
     /** Makes sure there is an open cycle with a position row for every bank when the switch starts. */
@@ -70,6 +75,10 @@ public class SettlementService implements ApplicationRunner {
     }
 
     public synchronized CycleReport close() {
+        return closeTimer.record(this::closeNow);
+    }
+
+    private CycleReport closeNow() {
         // Finish a cut-over that was interrupted (e.g. the switch restarted mid-close) before starting a new one
         long closing = cycles.closingCycleId().orElseGet(this::cutOver);
         drain(closing);
