@@ -3,6 +3,11 @@
 All notable changes to this project. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Dependabot: weekly, grouped minor and patch updates for Maven, the Docker base images and GitHub Actions.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added
@@ -39,6 +44,7 @@ and versions follow [Semantic Versioning](https://semver.org/).
 - Go bank simulator with ledger, holds, chaos controls and reconciliation.
 - Docker Compose setup, `scripts/demo.sh` and CI.
 
+[Unreleased]: https://github.com/amirizalrahmat0799/instant-transfer-switch/compare/v0.3.0...HEAD
 [0.3.0]: https://github.com/amirizalrahmat0799/instant-transfer-switch/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/amirizalrahmat0799/instant-transfer-switch/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/amirizalrahmat0799/instant-transfer-switch/compare/v0.1.0...v0.1.1
