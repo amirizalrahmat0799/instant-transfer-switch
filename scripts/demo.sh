@@ -83,4 +83,4 @@ for bank in "$ALFA" "$BRAVO" "$CHARLIE"; do
   printf '%s' "$r" | grep -q '"reconciled":true' || { echo "reconciliation break" >&2; exit 1; }
 done
 
-bold "Done. Open $SWITCH for the dashboard."
+bold "Done. Dashboard: $SWITCH  ·  Grafana: http://localhost:3000"

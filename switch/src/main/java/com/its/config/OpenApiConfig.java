@@ -29,7 +29,7 @@ public class OpenApiConfig {
         return new OpenAPI()
             .info(new Info()
                 .title("Instant Transfer Switch")
-                .version("0.2.0")
+                .version("0.3.0")
                 .description("""
                     Real-time interbank transfers with ISO 20022 messages. Banks authenticate with `X-Participant` \
                     (their BIC) **and** `X-Api-Key`; operators close settlement with `X-Admin-Key`.

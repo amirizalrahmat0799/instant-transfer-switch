@@ -1,6 +1,7 @@
-# The switch, its database and three bank simulators.
+# The switch, its database, three bank simulators, Prometheus and Grafana.
 #   docker compose up --build
-#   dashboard: http://localhost:8080   banks: 9001 (Alfa), 9002 (Bravo), 9003 (Charlie)
+#   switch dashboard: http://localhost:8080   API docs: http://localhost:8080/swagger-ui.html
+#   Grafana: http://localhost:3000   Prometheus: http://localhost:9090   banks: 9001 (Alfa), 9002 (Bravo), 9003 (Charlie)
 name: instant-transfer-switch
 
 x-bank: &bank
@@ -49,6 +50,26 @@ services:
     <<: *bank
     environment: { <<: *bank-env, BANK_BIC: CHRLMYKL, BANK_NAME: Charlie Bank, SWITCH_API_KEY: charlie-dev-key }
     ports: ["9003:9000"]
+
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    depends_on: [switch]
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports: ["9090:9090"]
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    depends_on: [prometheus]
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/transfer-switch.json
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports: ["3000:3000"]
 
 volumes:
   db:

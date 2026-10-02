@@ -1,5 +1,6 @@
 package com.its.transfer;
 
+import java.time.Duration;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import com.its.iso.IsoXml;
 import com.its.iso.Pacs008;
 import com.its.iso.Reason;
 import com.its.iso.StatusReport;
+import com.its.metrics.SwitchMetrics;
 import com.its.monitor.HeartbeatMonitor;
 import com.its.participant.Participant;
 import com.its.participant.ParticipantRegistry;
@@ -49,16 +51,19 @@ public class TransferService {
     private final HeartbeatMonitor heartbeat;
     private final CreditorBankClient banks;
     private final TransactionTemplate tx;
+    private final SwitchMetrics metrics;
     private final String switchBic;
 
     public TransferService(TransferRepository transfers, CycleRepository cycles, ParticipantRegistry registry,
-            HeartbeatMonitor heartbeat, CreditorBankClient banks, PlatformTransactionManager txManager, SwitchProperties props) {
+            HeartbeatMonitor heartbeat, CreditorBankClient banks, PlatformTransactionManager txManager, SwitchMetrics metrics,
+            SwitchProperties props) {
         this.transfers = transfers;
         this.cycles = cycles;
         this.registry = registry;
         this.heartbeat = heartbeat;
         this.banks = banks;
         this.tx = new TransactionTemplate(txManager);
+        this.metrics = metrics;
         this.switchBic = props.bic();
     }
 
@@ -99,6 +104,7 @@ public class TransferService {
             return replay(transfers.find(sender.bic(), msg.endToEndId()).orElseThrow());
         }
         if (cycleId == null) {
+            metrics.transfer(msg.debtorBic(), msg.creditorBic(), TransferRecord.REJECTED, Reason.INSUFFICIENT_FUNDS);
             return transfers.findById(id).orElseThrow().responseXml(); // rejected: net debit cap
         }
 
@@ -111,9 +117,18 @@ public class TransferService {
             log.error("Forwarding {} to {} failed unexpectedly", msg.endToEndId(), creditor.bic(), e);
             outcome = new Outcome.NoAnswer(e.toString());
         }
-        int latencyMs = (int) ((System.nanoTime() - start) / 1_000_000);
+        long elapsedNanos = System.nanoTime() - start;
+        int latencyMs = (int) (elapsedNanos / 1_000_000);
         Outcome result = outcome;
-        return tx.execute(status -> book(id, msg, cycleId, result, latencyMs));
+        String response = tx.execute(status -> book(id, msg, cycleId, result, latencyMs));
+        String outcomeTag = switch (result) {
+            case Outcome.Answered a when a.status().accepted() -> "completed";
+            case Outcome.Answered a -> "rejected";
+            case Outcome.Unreachable u -> "unreachable";
+            case Outcome.NoAnswer n -> "no_answer";
+        };
+        metrics.creditorLatency(msg.creditorBic(), outcomeTag, Duration.ofNanos(elapsedNanos));
+        return response;
     }
 
     private Long reserve(UUID id, Pacs008 msg, Participant sender) {
@@ -158,6 +173,7 @@ public class TransferService {
         if (!transfers.finish(id, status, report.reasonCode(), report.info(), latencyMs, xml)) {
             return transfers.findById(id).orElseThrow().responseXml();
         }
+        metrics.transfer(msg.debtorBic(), msg.creditorBic(), status, report.reasonCode());
         if (TransferRecord.COMPLETED.equals(status)) {
             cycles.credit(cycleId, msg.creditorBic(), msg.amount());
         } else {
@@ -176,6 +192,7 @@ public class TransferService {
         } catch (DuplicateKeyException race) {
             return replay(transfers.find(msg.debtorBic(), msg.endToEndId()).orElseThrow());
         }
+        metrics.transfer(msg.debtorBic(), msg.creditorBic(), TransferRecord.REJECTED, reason);
         return xml;
     }
 

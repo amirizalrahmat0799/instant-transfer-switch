@@ -137,6 +137,21 @@ close it on demand.
 **Reconciliation.** Each bank fetches its settled transactions for a cycle from the switch and compares them with its
 own ledger, reporting any break (for example, a credit the switch never confirmed).
 
+**Metrics.** `/actuator/prometheus` exposes business metrics next to the standard JVM and HTTP ones:
+
+| Metric | Type | Labels |
+|---|---|---|
+| `its_transfers_total` | counter | `debtor`, `creditor`, `outcome` (completed / rejected / timed_out), `reason` (ISO code) |
+| `its_transfer_creditor_latency_seconds` | histogram | `creditor`, `outcome` (completed / rejected / no_answer / unreachable) |
+| `its_bank_up` | gauge | `bank` (1 up, 0 down) |
+| `its_bank_net_position_ringgit`, `its_bank_cap_utilisation_ratio` | gauge | `bank` |
+| `its_reversals_pending`, `its_reversals_total` | gauge, counter | `result` |
+| `its_settlement_close_seconds` | timer | |
+
+Label values only ever come from the participant list and a fixed set of reason codes (anything else becomes
+`unknown` or `other`), so a malformed message can't create unbounded time series. Database-backed gauges are refreshed
+every 5 seconds in the background, so a scrape never waits on SQL.
+
 **Heartbeats.** The switch pings every bank's `/health` every 3 seconds. Transfers to a bank that's down are rejected
 at once with AB08 instead of making the sender wait for a timeout.
 
@@ -148,12 +163,20 @@ parser has DTDs and external entities disabled (XXE).
 Needs Docker Desktop.
 
 ```bash
-docker compose up -d --build     # switch on :8080, banks on :9001-9003, PostgreSQL on :5432
+docker compose up -d --build     # switch :8080, banks :9001-9003, PostgreSQL :5432, Prometheus :9090, Grafana :3000
 ./scripts/demo.sh                # needs bash and curl (Git Bash works on Windows)
 ```
 
-Open **http://localhost:8080** for the dashboard while the demo runs, and **http://localhost:8080/swagger-ui.html**
-for the API docs. The demo:
+While the demo runs, open:
+
+| | |
+|---|---|
+| **http://localhost:8080** | the switch's live operations page |
+| **http://localhost:3000** | Grafana: throughput, success rate, latency percentiles, rejections by ISO reason, bank status, debit caps |
+| **http://localhost:8080/swagger-ui.html** | interactive API docs |
+| **http://localhost:9090** | Prometheus, for ad-hoc queries |
+
+The demo:
 
 1. looks up a mobile number and shows the masked name,
 2. pays by mobile number and by account number,
@@ -246,6 +269,7 @@ switch/                     Spring Boot switch
     transfer/               transfer engine, creditor bank client, reversal job
     settlement/             cycles, net debit caps, netting, end-of-day close
     monitor/                heartbeats and the dashboard API
+    metrics/                Prometheus metrics (Micrometer)
     participant/, web/      bank registry, API-key auth, error handling
   src/main/resources/
     static/index.html       operations dashboard
@@ -257,7 +281,8 @@ bank/                       Go bank simulator
   internal/server/          HTTP API, outbound and inbound transfers, reconciliation
   internal/switchclient/    client for the switch
 scripts/demo.sh             end-to-end tour
-docker-compose.yml          PostgreSQL, the switch and three banks
+monitoring/                 Prometheus config, Grafana datasource and dashboard (provisioned)
+docker-compose.yml          PostgreSQL, the switch, three banks, Prometheus and Grafana
 ```
 
 ## Roadmap
@@ -265,7 +290,7 @@ docker-compose.yml          PostgreSQL, the switch and three banks
 - Request-to-pay (pain.013 / pain.014)
 - Mutual TLS and signed messages between banks and the switch
 - Kafka for the audit trail and dashboard events
-- Prometheus metrics and Grafana dashboards
+- Alerting rules (success rate, latency, a bank down, cap above 90%)
 - Liquidity top-ups that raise a bank's cap during the day
 
 ## License

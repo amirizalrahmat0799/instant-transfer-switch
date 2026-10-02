@@ -1,0 +1,9 @@
+global:
+  scrape_interval: 5s
+  evaluation_interval: 5s
+
+scrape_configs:
+  - job_name: transfer-switch
+    metrics_path: /actuator/prometheus
+    static_configs:
+      - targets: ["switch:8080"]

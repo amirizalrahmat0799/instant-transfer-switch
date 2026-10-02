@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -38,6 +39,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * points at a closed port, so it is offline. Needs Docker (Docker Desktop on Windows and macOS).
  */
 @Testcontainers
+@AutoConfigureObservability // tests turn metrics export off by default; /actuator/prometheus needs it on
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SwitchIntegrationTest {
 
@@ -136,6 +138,22 @@ class SwitchIntegrationTest {
         assertTrue(docs.body().contains("\"security\":[{\"participant\":[],\"apiKey\":[]}]"), "bank endpoints need both headers");
         assertTrue(docs.body().contains("\"security\":[{\"adminKey\":[]}]"), "settlement close needs the admin key");
         assertEquals(200, call("GET", "/swagger-ui/index.html", null, null, null, null).statusCode());
+    }
+
+    @Test
+    void prometheusExposesTransferMetrics() throws Exception {
+        send(pacs008("BRVOMYKL", "2200000001", "3.00"));
+        send(pacs008("BRVOMYKL", UNKNOWN_ACCOUNT, "3.00"));
+        var res = call("GET", "/actuator/prometheus", null, null, null, null);
+        assertEquals(200, res.statusCode());
+        String body = res.body();
+        assertTrue(body.contains("its_transfers_total{"), "transfer counter");
+        assertTrue(body.contains("outcome=\"completed\""), "completed transfers are counted");
+        assertTrue(body.contains("reason=\"AC01\""), "rejections carry the reason code");
+        assertTrue(body.contains("its_transfer_creditor_latency_seconds_bucket{"), "latency histogram");
+        assertTrue(body.contains("its_bank_up{"), "heartbeat gauge");
+        assertTrue(body.contains("its_bank_cap_utilisation_ratio{"), "cap gauge");
+        assertTrue(body.contains("its_reversals_pending"), "pending reversals gauge");
     }
 
     // ------------------------------------------------------------------------------------------------------------
