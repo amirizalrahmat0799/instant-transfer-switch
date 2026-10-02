@@ -9,16 +9,6 @@ jobs:
   switch:
     name: Switch (Java)
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_DB: switch
-          POSTGRES_USER: switch
-          POSTGRES_PASSWORD: switch
-        ports: ["5432:5432"]
-        options: >-
-          --health-cmd "pg_isready -U switch" --health-interval 5s --health-timeout 5s --health-retries 10
     defaults:
       run:
         working-directory: switch
@@ -29,10 +19,8 @@ jobs:
           distribution: temurin
           java-version: "21"
           cache: maven
-      - name: Unit and integration tests
+      - name: Unit and integration tests (Testcontainers starts PostgreSQL)
         run: mvn -B verify
-        env:
-          ITS_TEST_DB_URL: jdbc:postgresql://localhost:5432/switch
 
   bank:
     name: Bank simulator (Go)

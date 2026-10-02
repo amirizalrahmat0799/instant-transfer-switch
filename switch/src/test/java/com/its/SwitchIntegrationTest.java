@@ -18,9 +18,9 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -29,27 +29,30 @@ import com.its.iso.Pacs008;
 import com.its.iso.StatusReport;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.junit.jupiter.Container;
+import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
- * The whole switch against a real PostgreSQL and a fake receiving bank (Bravo). Charlie points at a closed port, so it
- * is offline. Runs only when ITS_TEST_DB_URL is set, e.g.
- * {@code ITS_TEST_DB_URL=jdbc:postgresql://localhost:5432/switch mvn verify}.
+ * The whole switch against a real PostgreSQL (started by Testcontainers) and a fake receiving bank (Bravo). Charlie
+ * points at a closed port, so it is offline. Needs Docker (Docker Desktop on Windows and macOS).
  */
-@EnabledIfEnvironmentVariable(named = "ITS_TEST_DB_URL", matches = ".+")
+@Testcontainers
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SwitchIntegrationTest {
 
     static final String UNKNOWN_ACCOUNT = "9999999999";
     static final String SLOW_ACCOUNT = "5555555555";
 
+    @Container
+    @ServiceConnection
+    static final PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16-alpine");
+
     static final HttpServer bravo = fakeBank();
     static final CountDownLatch cancellation = new CountDownLatch(1);
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("spring.datasource.url", () -> System.getenv("ITS_TEST_DB_URL"));
-        registry.add("spring.datasource.username", () -> System.getenv().getOrDefault("ITS_TEST_DB_USER", "switch"));
-        registry.add("spring.datasource.password", () -> System.getenv().getOrDefault("ITS_TEST_DB_PASSWORD", "switch"));
         registry.add("its.creditor-timeout", () -> "1s");
         // Overriding one list element would replace the whole participants list, so set the placeholders it uses instead
         registry.add("BRAVO_URL", () -> "http://localhost:" + bravo.getAddress().getPort());
@@ -122,6 +125,17 @@ class SwitchIntegrationTest {
         assertTrue(res.body().contains("\"status\":\"CLOSED\""), res.body());
         // after a close, a new cycle is open and transfers keep flowing
         assertEquals("ACSC", send(pacs008("BRVOMYKL", "2200000001", "1.00")).status());
+    }
+
+    @Test
+    void apiDocsDescribeTheEndpointsAndTheirHeaders() throws Exception {
+        var docs = call("GET", "/v3/api-docs", null, null, null, null);
+        assertEquals(200, docs.statusCode());
+        assertTrue(docs.body().contains("\"title\":\"Instant Transfer Switch\""), docs.body());
+        assertTrue(docs.body().contains("/api/v1/iso/pacs.008"));
+        assertTrue(docs.body().contains("\"security\":[{\"participant\":[],\"apiKey\":[]}]"), "bank endpoints need both headers");
+        assertTrue(docs.body().contains("\"security\":[{\"adminKey\":[]}]"), "settlement close needs the admin key");
+        assertEquals(200, call("GET", "/swagger-ui/index.html", null, null, null, null).statusCode());
     }
 
     // ------------------------------------------------------------------------------------------------------------

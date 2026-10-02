@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.its.participant.Participant;
 import com.its.participant.ParticipantRegistry;
 import com.its.proxy.ProxyRepository.ProxyRecord;
@@ -25,6 +29,7 @@ import jakarta.validation.constraints.Size;
  * DuitNow-style addressing: banks register their customers' phone, IC or business numbers, and any bank can
  * resolve one to the bank and account behind it before sending a transfer.
  */
+@Tag(name = "Proxies", description = "Pay by mobile, NRIC or business number")
 @RestController
 @RequestMapping("/api/v1/proxies")
 public class ProxyController {
@@ -49,9 +54,11 @@ public class ProxyController {
         this.registry = registry;
     }
 
+    @Operation(summary = "Register a proxy to one of your accounts",
+        description = "Mobile numbers are normalised (012-345 6701 becomes +60123456701). 409 if another bank owns it.")
     @PostMapping
     public ResponseEntity<Resolution> register(
-            @RequestAttribute(ParticipantAuthInterceptor.ATTRIBUTE) Participant bank,
+            @Parameter(hidden = true) @RequestAttribute(ParticipantAuthInterceptor.ATTRIBUTE) Participant bank,
             @Valid @RequestBody RegisterRequest req) {
         ProxyIds.Type type = ProxyIds.type(req.type());
         String value = ProxyIds.normalize(type, req.value());
@@ -62,15 +69,17 @@ public class ProxyController {
         return ResponseEntity.status(HttpStatus.CREATED).body(resolve(type.name(), value));
     }
 
+    @Operation(summary = "Resolve a proxy", description = "Returns the bank, account and a masked name to show the payer.")
     @GetMapping("/{type}/{value}")
     public Resolution lookup(@PathVariable String type, @PathVariable String value) {
         ProxyIds.Type t = ProxyIds.type(type);
         return resolve(t.name(), ProxyIds.normalize(t, value));
     }
 
+    @Operation(summary = "Remove your registration")
     @DeleteMapping("/{type}/{value}")
     public ResponseEntity<Void> deregister(
-            @RequestAttribute(ParticipantAuthInterceptor.ATTRIBUTE) Participant bank,
+            @Parameter(hidden = true) @RequestAttribute(ParticipantAuthInterceptor.ATTRIBUTE) Participant bank,
             @PathVariable String type, @PathVariable String value) {
         ProxyIds.Type t = ProxyIds.type(type);
         if (!proxies.delete(t.name(), ProxyIds.normalize(t, value), bank.bic())) {

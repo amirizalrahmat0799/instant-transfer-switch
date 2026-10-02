@@ -1,6 +1,7 @@
 # Instant Transfer Switch
 
 ![CI](https://github.com/amirizalrahmat0799/instant-transfer-switch/actions/workflows/ci.yml/badge.svg)
+![Release](https://img.shields.io/github/v/release/amirizalrahmat0799/instant-transfer-switch)
 ![Java](https://img.shields.io/badge/Java-21-007396)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F)
 ![Go](https://img.shields.io/badge/Go-1.24-00ADD8)
@@ -151,7 +152,8 @@ docker compose up -d --build     # switch on :8080, banks on :9001-9003, Postgre
 ./scripts/demo.sh                # needs bash and curl (Git Bash works on Windows)
 ```
 
-Open **http://localhost:8080** for the dashboard while the demo runs. The demo:
+Open **http://localhost:8080** for the dashboard while the demo runs, and **http://localhost:8080/swagger-ui.html**
+for the API docs. The demo:
 
 1. looks up a mobile number and shows the masked name,
 2. pays by mobile number and by account number,
@@ -189,6 +191,8 @@ curl localhost:9001/admin/reconcile/1
 ### Switch (`:8080`)
 
 Banks authenticate with `X-Participant: <BIC>` and `X-Api-Key`; settlement close needs `X-Admin-Key`.
+Interactive docs: **http://localhost:8080/swagger-ui.html** (OpenAPI spec at `/v3/api-docs`). Click **Authorize** and
+enter, for example, `ALFAMYKL` and `alfa-dev-key` to try the bank endpoints.
 
 | Method | Path | |
 |---|---|---|
@@ -218,16 +222,18 @@ Banks authenticate with `X-Participant: <BIC>` and `X-Api-Key`; settlement close
 
 ```bash
 cd bank && go test -race ./...           # ISO messages, ledger, the bank's send/receive flows against a fake switch
-cd switch && mvn verify                   # unit tests
-ITS_TEST_DB_URL=jdbc:postgresql://localhost:5432/switch mvn verify   # + the full switch against PostgreSQL
+cd switch && mvn verify                   # unit tests + the full switch against PostgreSQL (needs Docker running)
 ```
+
+The integration test starts its own PostgreSQL with [Testcontainers](https://testcontainers.com), so there's nothing
+to set up besides Docker.
 
 - **Bank (Go):** amount parsing, message round trips, holds and idempotent credits, reversals, on-us transfers, lost
   answers resolved through a status query, chaos modes, reconciliation breaks.
 - **Switch (Java):** money parsing, ISO parsing and writing (with messages produced by the Go bank as fixtures, so
   the two sides stay compatible), XXE refusal, proxy normalisation and masking, netting. The integration test runs the
   real switch with a fake receiving bank: proxy registration and lookup, completed and repeated transfers, AC01, AB08,
-  RC01, AM04, a timeout followed by a camt.056, and a settlement close.
+  RC01, AM04, a timeout followed by a camt.056, a settlement close, and the published API docs.
 - **CI** runs both, then starts everything with Docker Compose and runs `scripts/demo.sh` end to end.
 
 ## Project structure
