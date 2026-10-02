@@ -7,8 +7,8 @@ import java.net.http.HttpTimeoutException;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import com.its.config.SwitchProperties;
@@ -57,13 +57,15 @@ public class CreditorBankClient {
                 .body(pacs008Xml)
                 .retrieve()
                 .body(String.class);
-        } catch (ResourceAccessException e) {
-            return isConnectFailure(e) ? new Outcome.Unreachable(e.getMessage()) : new Outcome.NoAnswer(e.getMessage());
         } catch (RestClientResponseException e) {
             // 503 = the bank says it's offline and did not process anything
             return e.getStatusCode().value() == 503
                 ? new Outcome.Unreachable("HTTP 503")
                 : new Outcome.NoAnswer("HTTP " + e.getStatusCode().value());
+        } catch (RestClientException e) {
+            // Not only ResourceAccessException: a read timeout while Spring reads the response headers surfaces as a
+            // plain RestClientException ("Error while extracting response"), so classify by the root cause instead
+            return isConnectFailure(e) ? new Outcome.Unreachable(e.getMessage()) : new Outcome.NoAnswer(e.getMessage());
         }
         try {
             StatusReport st = IsoXml.parsePacs002(body);

@@ -103,9 +103,17 @@ public class TransferService {
         }
 
         long start = System.nanoTime();
-        Outcome outcome = banks.forwardCredit(creditor, xml, msg.endToEndId());
+        Outcome outcome;
+        try {
+            outcome = banks.forwardCredit(creditor, xml, msg.endToEndId());
+        } catch (RuntimeException e) {
+            // Never leave a reserved transfer in flight: it would hold the cap and block the settlement close
+            log.error("Forwarding {} to {} failed unexpectedly", msg.endToEndId(), creditor.bic(), e);
+            outcome = new Outcome.NoAnswer(e.toString());
+        }
         int latencyMs = (int) ((System.nanoTime() - start) / 1_000_000);
-        return tx.execute(status -> book(id, msg, cycleId, outcome, latencyMs));
+        Outcome result = outcome;
+        return tx.execute(status -> book(id, msg, cycleId, result, latencyMs));
     }
 
     private Long reserve(UUID id, Pacs008 msg, Participant sender) {

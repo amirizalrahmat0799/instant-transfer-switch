@@ -23,8 +23,8 @@ jobs:
       run:
         working-directory: switch
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: "21"
@@ -41,8 +41,8 @@ jobs:
       run:
         working-directory: bank
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
         with:
           go-version-file: bank/go.mod
       - run: go vet ./...
@@ -53,7 +53,7 @@ jobs:
     needs: [switch, bank]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Start the switch, database and three banks
         run: docker compose up -d --build --wait
       - name: Run scripts/demo.sh
