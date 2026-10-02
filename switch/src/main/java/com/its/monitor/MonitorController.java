@@ -11,6 +11,9 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+
 import com.its.iso.Reason;
 import com.its.participant.Participant;
 import com.its.participant.ParticipantRegistry;
@@ -19,6 +22,7 @@ import com.its.settlement.Netting;
 import com.its.settlement.Netting.Line;
 
 /** Read-only numbers for the operations dashboard (served from /). */
+@Tag(name = "Monitoring", description = "Numbers behind the operations dashboard")
 @RestController
 @RequestMapping("/api/v1/monitor")
 public class MonitorController {
@@ -57,6 +61,7 @@ public class MonitorController {
         this.cycles = cycles;
     }
 
+    @Operation(summary = "Dashboard summary", description = "Last 15 minutes, bank status and positions, recent transfers.")
     @GetMapping("/summary")
     public Summary summary() {
         Long cycleId = cycles.openCycleId().orElse(null);
