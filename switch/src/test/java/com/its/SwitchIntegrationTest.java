@@ -18,6 +18,7 @@ import java.util.concurrent.TimeUnit;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.autoconfigure.actuate.observability.AutoConfigureObservability;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
@@ -38,6 +39,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * points at a closed port, so it is offline. Needs Docker (Docker Desktop on Windows and macOS).
  */
 @Testcontainers
+@AutoConfigureObservability // tests turn metrics export off by default; /actuator/prometheus needs it on
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 class SwitchIntegrationTest {
 
