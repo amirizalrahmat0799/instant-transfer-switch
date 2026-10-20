@@ -1,0 +1,42 @@
+# Publishes a GitHub Release for a version tag, with that version's section of CHANGELOG.md as the notes.
+#   git tag v0.4.0 && git push origin v0.4.0
+# For tags pushed before this workflow existed: Actions > Release > Run workflow, and enter the tag.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing tag to publish a release for (e.g. v0.3.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ env.TAG }}
+      - name: Release notes from CHANGELOG.md
+        id: notes
+        run: |
+          version="${TAG#v}"
+          tr -d '\r' < CHANGELOG.md | awk -v v="$version" '
+            index($0, "## [" v "]") == 1 { found = 1; next }
+            /^## \[/ { if (found) exit }
+            found' > notes.md
+          if [ -s notes.md ]; then echo "found=true" >> "$GITHUB_OUTPUT"; else echo "found=false" >> "$GITHUB_OUTPUT"; fi
+          cat notes.md
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG }}
+          name: Instant Transfer Switch ${{ env.TAG }}
+          body_path: ${{ steps.notes.outputs.found == 'true' && 'notes.md' || '' }}
+          generate_release_notes: ${{ steps.notes.outputs.found != 'true' }}

@@ -1,7 +1,7 @@
 # Instant Transfer Switch
 
-![CI](https://github.com/amirizalrahmat0799/instant-transfer-switch/actions/workflows/ci.yml/badge.svg)
-![Release](https://img.shields.io/github/v/release/amirizalrahmat0799/instant-transfer-switch)
+[![CI](https://github.com/amirizalrahmat0799/instant-transfer-switch/actions/workflows/ci.yml/badge.svg)](https://github.com/amirizalrahmat0799/instant-transfer-switch/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/amirizalrahmat0799/instant-transfer-switch)](https://github.com/amirizalrahmat0799/instant-transfer-switch/releases)
 ![Java](https://img.shields.io/badge/Java-21-007396)
 ![Spring Boot](https://img.shields.io/badge/Spring_Boot-3.5-6DB33F)
 ![Go](https://img.shields.io/badge/Go-1.24-00ADD8)
